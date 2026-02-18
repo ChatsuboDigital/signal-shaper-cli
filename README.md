@@ -208,15 +208,23 @@ EXA_API_KEY=                  # Domain resolution, signals, context
 AI_PROVIDER=openai            # openai or anthropic
 OPENAI_API_KEY=               # Required if AI_PROVIDER=openai
 
-# ── Connector ────────────────────────────────────────────────
+# ── Connector — Email Enrichment ─────────────────────────────
 APOLLO_API_KEY=               # Email enrichment (primary)
 ANYMAIL_API_KEY=              # Email enrichment (fallback)
 
-# ── Campaign Sending (optional) ──────────────────────────────
+# ── Connector — Campaign Sending (optional) ───────────────────
 SENDING_PROVIDER=instantly    # instantly or plusvibe
-INSTANTLY_API_KEY=
+
+# Campaign IDs — used by whichever platform is active above
 DEMAND_CAMPAIGN_ID=
 SUPPLY_CAMPAIGN_ID=
+
+# Instantly.ai
+INSTANTLY_API_KEY=
+
+# PlusVibe (alternative to Instantly)
+# PLUSVIBE_API_KEY=
+# PLUSVIBE_WORKSPACE_ID=
 ```
 
 ---
@@ -236,6 +244,8 @@ SUPPLY_CAMPAIGN_ID=
 **No emails found** — Check `APOLLO_API_KEY` or `ANYMAIL_API_KEY`. Run `signalis setup` to configure.
 
 **Emails not sending** — Verify `SENDING_PROVIDER`, the matching API key, and at least one campaign ID in `.env`. Run `signalis config` to check.
+
+**`signalis connect` not found** — Run `pip install -e ".[all]"` from the project folder (with venv active) to register the connector. The `update` command does this automatically.
 
 **Update failing** — Run `signalis update`, or manually: `git pull && pip install -e ".[all]"`.
 
