@@ -1,12 +1,11 @@
 """
-Interactive Mode for Connector CLI
+Interactive Mode for Connector
 
 Guides users through the flow with prompts and questions.
 """
 
 import os
 from pathlib import Path
-from rich.console import Console
 from rich.prompt import Prompt, Confirm
 
 # Optional inquirer import - fallback to rich prompts if not available
@@ -393,7 +392,7 @@ def check_first_run():
                 console.print("[cyan]Next steps:[/cyan]")
                 console.print("  1. Open [white].env[/white] in your text editor")
                 console.print("  2. Add your API keys (OpenAI, Apollo, etc.)")
-                console.print("  3. Run [white]connector-cli[/white] again")
+                console.print("  3. Run [white]signalis connect[/white] again")
                 console.print()
                 return False
             else:
@@ -420,7 +419,7 @@ def show_quick_tips():
         "• Higher match scores = fewer but better matches\n"
         "• Enrichment finds missing emails (requires API keys)\n"
         "• AI intros work best with OpenAI or Anthropic\n\n"
-        "[dim]Type 'connector-cli run' to start in interactive mode[/dim]",
+        "[dim]Type 'signalis connect' to start in interactive mode[/dim]",
         border_style="blue",
         padding=(1, 2)
     )

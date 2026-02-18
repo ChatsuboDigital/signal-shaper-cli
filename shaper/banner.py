@@ -7,11 +7,13 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
+from core import __version__
+
 # Global console instance
 console = Console()
 
 
-VERSION = "1.0.0"
+VERSION = __version__
 TAGLINE = "Transform raw data into outreach-ready CSVs"
 
 
@@ -79,50 +81,6 @@ def show_preview_table(records: list, headers: list, limit: int = 5):
         table.add_row(*row)
 
     console.print(table)
-
-
-def show_validation_summary(valid: int, warnings: int, total: int, avg_score: float):
-    """Show validation summary"""
-    panel = Panel(
-        f"[bold]Validation Summary[/bold]\n\n"
-        f"Total rows: [white]{total}[/white]\n"
-        f"☉ Valid: [green]{valid}[/green] ({valid/total*100:.0f}%)\n"
-        f"▲ Warnings: [yellow]{warnings}[/yellow]\n"
-        f"Average quality score: [cyan]{avg_score:.0f}/100[/cyan]",
-        border_style="cyan",
-        padding=(1, 2)
-    )
-    console.print(panel)
-
-
-def show_signal_distribution(distribution: dict):
-    """Show signal type distribution"""
-    console.print("\n[bold cyan]Signal Type Distribution:[/bold cyan]")
-
-    table = Table(show_header=True, header_style="bold cyan")
-    table.add_column("Signal Type", style="cyan")
-    table.add_column("Count", justify="right")
-    table.add_column("Percentage", justify="right")
-
-    total = sum(distribution.values())
-    for signal_type, count in sorted(distribution.items(), key=lambda x: x[1], reverse=True):
-        percentage = f"{count/total*100:.1f}%" if total > 0 else "0%"
-        table.add_row(signal_type, str(count), percentage)
-
-    console.print(table)
-
-
-def show_export_summary(records_exported: int, output_path: str, duplicates_removed: int = 0):
-    """Show export summary"""
-    panel = Panel(
-        f"[bold green]Export Complete![/bold green]\n\n"
-        f"Records exported: [white]{records_exported}[/white]\n"
-        f"Duplicates removed: [white]{duplicates_removed}[/white]\n"
-        f"Output: [cyan]{output_path}[/cyan]",
-        border_style="green",
-        padding=(1, 2)
-    )
-    console.print(panel)
 
 
 def create_progress() -> Progress:

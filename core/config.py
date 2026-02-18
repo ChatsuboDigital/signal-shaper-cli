@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
+from ._version import __version__
+
 
 class ShaperConfig:
     """
@@ -24,7 +26,7 @@ class ShaperConfig:
 
         # Framework settings
         self.framework_name = "Signalis Framework"
-        self.framework_version = "1.0.0"
+        self.framework_version = __version__
 
         # Paths
         self.root_dir = Path(__file__).parent.parent

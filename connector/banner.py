@@ -6,9 +6,10 @@ from rich.panel import Panel
 
 # Use shared console so output is consistent with main shaper UI
 from shaper.banner import console
+from core import __version__
 
 TAGLINE = "Match Supply to Demand • Enrich Data • Generate AI Intros • Send Campaigns"
-VERSION = "v1.0.0"
+VERSION = f"v{__version__}"
 
 
 def show_banner():

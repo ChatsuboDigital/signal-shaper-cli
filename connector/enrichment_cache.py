@@ -1,8 +1,7 @@
 """
 Enrichment Cache - File-based caching for enriched contacts
 
-Python port of connector-os enrichment caching system.
-Uses JSON file instead of database for simplicity.
+Uses JSON file for simplicity. 90-day TTL.
 """
 
 import json
@@ -16,7 +15,7 @@ from .models import NormalizedRecord, EnrichmentResult
 
 
 # Cache settings
-CACHE_FILE = Path.home() / '.connector-cli' / 'enrichment_cache.json'
+CACHE_FILE = Path.home() / '.signalis' / 'enrichment_cache.json'
 CACHE_TTL_DAYS = 90  # 90-day TTL like original
 
 

@@ -103,7 +103,7 @@ pip install --upgrade pip --quiet --disable-pip-version-check
 pip install -e "$SCRIPT_DIR[all]" --quiet --disable-pip-version-check \
     || die "Dependency installation failed. Check your internet connection and try again."
 
-ok "Installed (Shaper + Connector — full install)"
+ok "Installed (Shaper + Connector — full install)."
 
 BINARY="$VENV_DIR/bin/signalis"
 
@@ -181,7 +181,9 @@ fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
+echo -e "${DIM}  ________________________________________${NC}"
 echo -e "${GREEN}${BOLD}  Installation complete.${NC}"
+echo -e "${DIM}  ________________________________________${NC}"
 echo ""
 
 # Prompt for API key setup if any keys are missing

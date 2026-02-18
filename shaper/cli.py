@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
 
+from core import __version__
 from .banner import (
     show_banner, show_step, show_success, show_error,
     show_warning, show_info, show_preview_table, create_progress, console
@@ -41,7 +42,7 @@ except ImportError:
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-@click.version_option(version='1.0.0')
+@click.version_option(version=__version__)
 def cli(ctx):
     """
     Signalis Framework - Transform raw data into outreach-ready CSVs
@@ -72,9 +73,9 @@ def interactive(no_banner: bool):
     show_banner()
 
     try:
-        while True:  # restart loop — Back at source selection returns here
+        while True:  # top-level restart loop
 
-            # Step 1: Choose what to process
+            # ── Top-level menu ─────────────────────────────────────────────
             while True:
                 has_exa = bool(os.getenv('EXA_API_KEY'))
                 has_ai = bool(os.getenv('OPENAI_API_KEY') or os.getenv('ANTHROPIC_API_KEY'))
@@ -84,48 +85,70 @@ def interactive(no_banner: bool):
                     if not has_exa:
                         missing.append("EXA_API_KEY")
                     if not has_ai:
-                        missing.append("AI key (OpenAI or Anthropic)")
+                        missing.append("AI key")
                     console.print(
                         f"[yellow]▲ Not configured: {', '.join(missing)} — "
                         f"press [bold]S[/bold] to set up[/yellow]\n"
                     )
 
-                console.print("[bold cyan]What do you want to process?[/bold cyan]\n")
-                console.print("  [cyan]1[/cyan]   Supply data only      [dim](Recruiters, vendors, partners)[/dim]")
-                console.print("  [cyan]2[/cyan]   Demand data only      [dim](Companies hiring, buyers)[/dim]")
-                console.print("  [cyan]3[/cyan]   Both supply & demand  [dim](Full matching workflow)[/dim]")
-                console.print("  [cyan]C[/cyan]   Connect               [dim](Match supply & demand, generate intros)[/dim]")
-                console.print("  [cyan]S[/cyan]   Settings              [dim](Configure API keys)[/dim]")
-                console.print("  [cyan]U[/cyan]   Update                [dim](Pull latest version from GitHub)[/dim]")
-                console.print("  [cyan]0[/cyan]   Exit                  [dim](Quit)[/dim]\n")
+                console.print("[bold cyan]What would you like to do?[/bold cyan]\n")
+                console.print("  [cyan]1[/cyan]  [bold]⚗  Shaper[/bold]      [dim]Transform raw data into outreach-ready CSVs[/dim]")
+                console.print("  [cyan]2[/cyan]  [bold]⚯  Connector[/bold]   [dim]Match supply & demand · enrich contacts · generate intros[/dim]")
+                console.print()
+                console.print("  [cyan]S[/cyan]  ◈  Settings    [dim]Configure API keys[/dim]")
+                console.print("  [cyan]U[/cyan]  ⟶  Update      [dim]Pull latest version from GitHub[/dim]")
+                console.print("  [cyan]0[/cyan]  ⊗  Exit\n")
 
-                process_choice = Prompt.ask(
+                top_choice = Prompt.ask(
                     "Select option",
-                    choices=["0", "1", "2", "3", "c", "C", "s", "S", "u", "U"],
-                    default="3"
+                    choices=["0", "1", "2", "s", "S", "u", "U"],
+                    default="1"
                 )
 
-                if process_choice.lower() == "c":
-                    if not _has_connector:
-                        show_error("Connector not installed.")
-                        show_info("Run: pip install -e \".[connector]\"")
-                    else:
-                        click.get_current_context().invoke(connector_cli)
-                    continue
-
-                if process_choice.lower() == "s":
+                if top_choice.lower() == "s":
                     _do_setup()
                     continue
 
-                if process_choice.lower() == "u":
+                if top_choice.lower() == "u":
                     click.get_current_context().invoke(update)
                     continue
 
-                if process_choice == "0":
+                if top_choice == "0":
                     console.print("\n[yellow]⊗ Exiting Signalis Framework...[/yellow]\n")
                     return
 
                 break
+
+            # ── Connector ──────────────────────────────────────────────────
+            if top_choice == "2":
+                if not _has_connector:
+                    show_error("Connector not installed.")
+                    show_info("Run: pip install -e \".[all]\"")
+                else:
+                    click.get_current_context().invoke(connector_cli)
+                continue
+
+            # ── Shaper — sub-menu ──────────────────────────────────────────
+            while True:
+                console.print("\n[bold cyan]⚗  Shaper — What do you want to process?[/bold cyan]\n")
+                console.print("  [cyan]1[/cyan]  ⚗  Supply data only      [dim]Recruiters, vendors, partners[/dim]")
+                console.print("  [cyan]2[/cyan]  ⟶  Demand data only      [dim]Companies hiring, buyers[/dim]")
+                console.print("  [cyan]3[/cyan]  ⚯  Both supply & demand  [dim]Full shaping workflow[/dim]")
+                console.print("  [cyan]0[/cyan]  ☾  Back                  [dim]Return to main menu[/dim]\n")
+
+                process_choice = Prompt.ask(
+                    "Select option",
+                    choices=["0", "1", "2", "3"],
+                    default="3"
+                )
+
+                if process_choice == "0":
+                    break  # back to top-level menu
+
+                break
+
+            if process_choice == "0":
+                continue  # restart at top-level menu
 
             datasets_to_process = []
 
@@ -689,7 +712,7 @@ def _process_records(records, mapping, global_signal=None, signal_prefix=None):
 @cli.command()
 def version():
     """Show version information"""
-    click.echo("Signalis Framework v1.0.0")
+    click.echo(f"Signalis Framework v{__version__}")
     click.echo("Transform raw data into outreach-ready CSVs")
 
 
@@ -958,7 +981,7 @@ def update():
     show_info("Installing new dependencies...")
     try:
         result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', '-e', '.[ai]', '--quiet'],
+            [sys.executable, '-m', 'pip', 'install', '-e', '.[all]', '--quiet'],
             cwd=root,
             capture_output=True,
             text=True

@@ -1,8 +1,7 @@
 """
-Connector CLI - Main Command Line Interface
+Connector — Matching, Enrichment & AI Intros
 
-Python port of connector-os flow module
-Handles CSV matching, enrichment, and AI-powered intro generation.
+Accessed via 'signalis connect' from the main CLI.
 """
 
 import warnings
@@ -17,6 +16,7 @@ from pathlib import Path
 import click
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
+from core import __version__
 from .config import ConnectorConfig
 from .csv_normalizer import load_and_normalize_csv
 from .matcher import match_records, filter_by_score
@@ -38,15 +38,13 @@ from .interactive import (
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-@click.version_option(version='1.0.0')
+@click.version_option(version=__version__)
 def cli(ctx):
     """
-    ⟐ Connector CLI - CSV Matching, Enrichment & AI Intros
+    ⚯ Connector — CSV Matching, Enrichment & AI Intros
 
-    A Python port of the connector-os flow module for command-line use.
-
-    Run 'connector-cli' with no arguments for interactive mode,
-    or use 'connector-cli run' with options for direct execution.
+    Run 'signalis connect' for interactive mode,
+    or use 'signalis connect run' with options for direct execution.
     """
     # Simple header (no ASCII art - only main Signalis has that)
     # If no subcommand, run interactive mode
@@ -184,13 +182,13 @@ def run(demand, supply, output_dir, min_score, best_match_only, enrich, ai_intro
     Run the complete flow: match, enrich, and generate AI intros
 
     Example:
-        connector-cli run --demand demand.csv --supply supply.csv
+        signalis connect run --demand demand.csv --supply supply.csv
     """
     # If not interactive and missing required args, show error
     if not interactive and (not demand or not supply):
         show_error("Missing required arguments: --demand and --supply")
-        console.print("\n[dim]Run 'connector-cli' (no arguments) for interactive mode[/dim]")
-        console.print("[dim]Or use: connector-cli run --demand FILE --supply FILE[/dim]\n")
+        console.print("\n[dim]Run 'signalis connect' (no arguments) for interactive mode[/dim]")
+        console.print("[dim]Or use: signalis connect run --demand FILE --supply FILE[/dim]\n")
         raise click.Abort()
 
     # Load configuration
@@ -636,8 +634,8 @@ def run(demand, supply, output_dir, min_score, best_match_only, enrich, ai_intro
         console.print("[bold]☾ Next Steps:[/bold]")
         console.print(f"  • Review matches in [cyan]{output_dir}/demand_matches.csv[/cyan]")
         console.print(f"  • Check supplier aggregates in [cyan]{output_dir}/supply_aggregates.csv[/cyan]")
-        console.print("  • Run more matches: [cyan]./signalis connect[/cyan]")
-        console.print("  • Process new data: [cyan]./signalis shaper[/cyan]\n")
+        console.print("  • Run more matches: [cyan]signalis connect[/cyan]")
+        console.print("  • Process new data: [cyan]signalis[/cyan]\n")
         console.print("[dim]Press Enter to return to Signalis menu...[/dim]")
         input()
 
@@ -751,7 +749,7 @@ def cache():
         console.print()
 
     console.print("[dim]Cache stores enriched emails for 90 days to reduce API costs[/dim]")
-    console.print("[dim]Run 'connector-cli cache-clear' to clear the cache[/dim]\n")
+    console.print("[dim]Run 'signalis connect cache-clear' to clear the cache[/dim]\n")
 
 
 @cli.command()
@@ -798,13 +796,13 @@ Alice Williams,DevAgency,devagency.io,Full-stack development agency"""
     # Usage example
     console.print("[bold cyan]Usage Examples[/bold cyan]\n")
     console.print("[bold]1. Interactive mode (recommended):[/bold]")
-    console.print("   [white]connector-cli[/white]\n")
+    console.print("   [white]signalis connect[/white]\n")
 
     console.print("[bold]2. Direct mode:[/bold]")
-    console.print("   [white]connector-cli run --demand demand.csv --supply supply.csv[/white]\n")
+    console.print("   [white]signalis connect run --demand demand.csv --supply supply.csv[/white]\n")
 
     console.print("[bold]3. With options:[/bold]")
-    console.print("   [white]connector-cli run -d demand.csv -s supply.csv --min-score 40 --format both[/white]\n")
+    console.print("   [white]signalis connect run -d demand.csv -s supply.csv --min-score 40 --format both[/white]\n")
 
 
 def main():
