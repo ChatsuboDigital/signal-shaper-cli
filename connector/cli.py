@@ -265,15 +265,19 @@ def run(demand, supply, output_dir, min_score, best_match_only, enrich, ai_intro
     ) as progress:
         task = progress.add_task(
             f"Scoring {len(demand_records)} × {len(supply_records)} pairs...",
-            total=100
+            total=len(demand_records)
         )
+
+        def _on_match_progress(curr, total):
+            progress.update(task, completed=curr)
+
         result = match_records(
             demand_records,
             supply_records,
             min_score=int(min_score),
-            best_match_only=best_match_only
+            best_match_only=best_match_only,
+            on_progress=_on_match_progress,
         )
-        progress.update(task, completed=100)
 
     elapsed = time.time() - start_time
 

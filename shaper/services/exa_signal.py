@@ -525,11 +525,12 @@ class ExaSignalGenerator:
                         research=demand_research,
                     )
 
-            if need_context and supply_research:
+            context_research = supply_research or demand_research
+            if need_context and context_research:
                 prompts['context'] = CONTEXT_PROMPT.format(
                     company_name=company_name or domain,
                     domain=domain or '',
-                    research=supply_research,
+                    research=context_research,
                 )
 
             if not prompts:

@@ -641,7 +641,8 @@ def match_records(
     demand: List[NormalizedRecord],
     supply: List[NormalizedRecord],
     min_score: int = 0,
-    best_match_only: bool = False
+    best_match_only: bool = False,
+    on_progress: Optional[callable] = None,
 ) -> MatchingResult:
     """
     Match demand records to supply records.
@@ -652,6 +653,7 @@ def match_records(
         min_score: Minimum score threshold for matches (default: 0)
         best_match_only: If True, return only best match per demand (legacy mode)
                         If False, return ALL matches above threshold (default)
+        on_progress: Optional callback(current, total) called after each demand row
 
     Returns:
         MatchingResult with demand_matches, supply_aggregates, and stats
@@ -663,11 +665,13 @@ def match_records(
     all_matches = []
 
     # Score every demand-supply pair
-    for d in demand:
+    for i, d in enumerate(demand):
         for s in supply:
             match = score_match(d, s)
             if match.score >= min_score:  # Apply min_score during matching
                 all_matches.append(match)
+        if on_progress:
+            on_progress(i + 1, len(demand))
 
     # Sort by score descending
     all_matches.sort(key=lambda m: m.score, reverse=True)
