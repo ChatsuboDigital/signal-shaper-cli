@@ -16,6 +16,7 @@ from .enrichment_cache import check_cache, store_in_cache
 @dataclass
 class EnrichmentConfig:
     """Configuration for enrichment providers"""
+    ssm_api_key: Optional[str] = None
     apollo_api_key: Optional[str] = None
     anymail_api_key: Optional[str] = None
     connector_agent_api_key: Optional[str] = None
@@ -25,6 +26,92 @@ class EnrichmentConfig:
 # =============================================================================
 # PROVIDER FUNCTIONS
 # =============================================================================
+
+def enrich_with_ssm(
+    record: NormalizedRecord,
+    api_key: str,
+    timeout_ms: int = 30000
+) -> Optional[EnrichmentResult]:
+    """
+    Enrich record using SSM member API.
+
+    SSM membership required — get your API key at:
+    https://www.skool.com/ssm
+
+    Searches by domain + person name.
+    """
+    if not api_key or not record.domain:
+        return None
+
+    if not (record.first_name or record.full_name):
+        return EnrichmentResult(
+            action='FIND_PERSON',
+            outcome='MISSING_INPUT',
+            source='none',
+            inputs_present={'domain': bool(record.domain), 'person_name': False}
+        )
+
+    first_name = record.first_name or record.full_name.split()[0]
+    last_name = record.last_name or (record.full_name.split()[1] if len(record.full_name.split()) > 1 else '')
+
+    try:
+        response = requests.post(
+            'https://api.ssm.chatsubo.digital/v1/enrich',
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {api_key}',
+            },
+            json={
+                'domain': record.domain,
+                'first_name': first_name,
+                'last_name': last_name,
+                'company': record.company,
+            },
+            timeout=timeout_ms / 1000
+        )
+
+        if response.status_code == 401:
+            return EnrichmentResult(
+                action='FIND_PERSON',
+                outcome='AUTH_ERROR',
+                source='ssm',
+                inputs_present={'domain': True, 'person_name': True}
+            )
+
+        if response.status_code != 200:
+            return EnrichmentResult(
+                action='FIND_PERSON',
+                outcome='NOT_FOUND',
+                source='ssm',
+                inputs_present={'domain': True, 'person_name': True}
+            )
+
+        data = response.json()
+        email = data.get('email')
+
+        if not email:
+            return EnrichmentResult(
+                action='FIND_PERSON',
+                outcome='NO_CANDIDATES',
+                source='ssm',
+                inputs_present={'domain': True, 'person_name': True}
+            )
+
+        return EnrichmentResult(
+            action='FIND_PERSON',
+            outcome='ENRICHED',
+            email=email,
+            first_name=data.get('first_name', first_name),
+            last_name=data.get('last_name', last_name),
+            title=data.get('title', record.title or ''),
+            verified=True,
+            source='ssm',
+            inputs_present={'domain': True, 'person_name': True}
+        )
+
+    except Exception:
+        return None
+
 
 def enrich_with_apollo(
     record: NormalizedRecord,
@@ -298,7 +385,7 @@ def enrich_record(
     FLOW:
     1. If email exists, return immediately (trust user data)
     2. Check cache for previous enrichment
-    3. Waterfall through providers: Apollo → Anymail → Connector Agent
+    3. Waterfall through providers: SSM → Apollo → Anymail → Connector Agent
     4. Store successful results in cache
     5. Return first successful enrichment
 
@@ -333,6 +420,7 @@ def enrich_record(
 
     # Try providers in order
     providers = [
+        ('ssm', enrich_with_ssm, config.ssm_api_key),
         ('apollo', enrich_with_apollo, config.apollo_api_key),
         ('anymail', enrich_with_anymail, config.anymail_api_key),
         ('connectorAgent', enrich_with_connector_agent, config.connector_agent_api_key),

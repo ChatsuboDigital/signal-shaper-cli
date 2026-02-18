@@ -136,7 +136,9 @@ The matching engine scores pairs using weighted factors — industry alignment, 
 
 ### Enrichment
 
-Missing emails are resolved through a cascading system — cache first, then Apollo, then Anymail Finder as fallback. Successful results are cached locally for 90 days, so re-runs on similar data cost zero API calls.
+Missing emails are resolved through a cascading system — cache first, then SSM, then Apollo, then Anymail Finder as fallback. Successful results are cached locally for 90 days, so re-runs on similar data cost zero API calls.
+
+> **SSM members** get access to the SSM enrichment provider — the fastest path in the cascade. [Join the SSM Skool group](https://www.skool.com/ssm) to get your API key.
 
 ```bash
 signalis connect cache          # View cache stats
@@ -183,11 +185,14 @@ The core pipeline works with zero API keys. Services layer on intelligence when 
 |---------|-------------|---------|
 | **Exa** | Domain resolution, AI signal generation, company context | Shaper |
 | **OpenAI / Anthropic** | Signal synthesis, intro generation | Both |
-| **Apollo** | Email enrichment (primary) | Connector |
-| **Anymail Finder** | Email enrichment (fallback) | Connector |
+| **SSM** ⬡ | Email enrichment — first in cascade (SSM members only) | Connector |
+| **Apollo** | Email enrichment | Connector |
+| **Anymail Finder** | Email enrichment fallback | Connector |
 | **Instantly.ai** | Campaign sending | Connector |
 | **Plusvibe** | Campaign sending (alternative) | Connector |
 | **Apify** | Dataset loading | Shaper |
+
+⬡ SSM enrichment is available to SSM community members. [Join the Skool group](https://www.skool.com/ssm) to get your API key.
 
 Configure keys interactively with `signalis setup` or edit `.env` by hand. Run `signalis config` to see what's active.
 
@@ -209,8 +214,9 @@ AI_PROVIDER=openai            # openai or anthropic
 OPENAI_API_KEY=               # Required if AI_PROVIDER=openai
 
 # ── Connector — Email Enrichment ─────────────────────────────
-APOLLO_API_KEY=               # Email enrichment (primary)
-ANYMAIL_API_KEY=              # Email enrichment (fallback)
+SSM_API_KEY=                  # SSM members only — skool.com/ssm
+APOLLO_API_KEY=               # Email enrichment
+ANYMAIL_API_KEY=              # Email enrichment fallback
 
 # ── Connector — Campaign Sending (optional) ───────────────────
 SENDING_PROVIDER=instantly    # instantly or plusvibe
