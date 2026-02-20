@@ -129,6 +129,7 @@ class Match:
     need_profile: Optional[NeedProfile] = None
     capability_profile: Optional[CapabilityProfile] = None
     buyer_seller_valid: Optional[bool] = None
+    narrative: Optional[Dict[str, Any]] = None
 
 
 @dataclass

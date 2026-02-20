@@ -14,6 +14,7 @@ from .models import (
     NeedProfile, CapabilityProfile, DemandRecord, SupplyRecord
 )
 from .semantic_expansion import get_semantic_score
+from .buyer_seller import validate_match
 
 
 # =============================================================================
@@ -543,10 +544,110 @@ def parse_size(size: Any) -> int:
 
 
 # =============================================================================
+# NARRATIVE BUILDING
+# =============================================================================
+
+def build_narrative(
+    demand: NormalizedRecord,
+    supply: NormalizedRecord,
+    reasons: List[str],
+) -> Dict[str, Any]:
+    """
+    Build a neutral, human-readable explanation of why this pair matches.
+    Port of connector-os buildNarrative(). neutral:True enforces no timing claims.
+    """
+    d_industry = to_string_safe(demand.industry).lower()
+    demand_type = f"{d_industry} company" if d_industry else 'company'
+
+    supply_title = to_string_safe(supply.title).lower()
+    if re.search(r'recruit|staffing|talent', supply_title):
+        supply_type = 'recruiter'
+    elif re.search(r'consultant|advisor', supply_title):
+        supply_type = 'consultant'
+    elif re.search(r'agency|partner', supply_title):
+        supply_type = 'agency'
+    elif re.search(r'bd|business development|licensing', supply_title):
+        supply_type = 'BD team'
+    elif supply_title:
+        supply_type = supply_title[:30]
+    else:
+        supply_type = 'provider'
+
+    return {
+        'demand_type': demand_type,
+        'supply_type': supply_type,
+        'why': reasons[0] if reasons else 'Overlap detected',
+        'neutral': True,
+    }
+
+
+# =============================================================================
+# ROUND-ROBIN DISTRIBUTION
+# =============================================================================
+
+def distribute_matches_round_robin(
+    matches: List[Match],
+    max_candidates_per_demand: int = 3,
+) -> List[Match]:
+    """
+    Distribute demand records across supply using greedy round-robin.
+    Port of connector-os distributeMatchesRoundRobin().
+
+    Replaces winner-takes-all: ensures supplies are used fairly rather than
+    one high-scoring supply receiving all demand contacts.
+
+    Each demand gets assigned to the least-used eligible supply from its
+    top-K candidates. Deterministic: same input → same output.
+    """
+    # Group matches by demand key, preserving score-sorted order
+    by_demand: Dict[str, List[Match]] = {}
+    demand_order: List[str] = []
+
+    for match in matches:
+        key = get_demand_key(match.demand)
+        if key not in by_demand:
+            by_demand[key] = []
+            demand_order.append(key)
+        by_demand[key].append(match)
+
+    # Top K candidates per demand (already sorted by score descending)
+    candidates_by_demand = {
+        k: v[:max_candidates_per_demand]
+        for k, v in by_demand.items()
+    }
+
+    supply_usage: Dict[str, int] = {}
+    result: List[Match] = []
+
+    for demand_key in demand_order:
+        candidates = candidates_by_demand.get(demand_key, [])
+        if not candidates:
+            continue
+
+        # Pick the candidate whose supply has been used least (tie-break: higher score first)
+        best: Optional[Match] = None
+        min_usage = float('inf')
+
+        for candidate in candidates:
+            s_key = get_supply_key(candidate.supply)
+            usage = supply_usage.get(s_key, 0)
+            if usage < min_usage:
+                min_usage = usage
+                best = candidate
+
+        if best:
+            result.append(best)
+            s_key = get_supply_key(best.supply)
+            supply_usage[s_key] = supply_usage.get(s_key, 0) + 1
+
+    return result
+
+
+# =============================================================================
 # MAIN MATCHING FUNCTION
 # =============================================================================
 
-def score_match(demand: NormalizedRecord, supply: NormalizedRecord) -> Match:
+def score_match(demand: NormalizedRecord, supply: NormalizedRecord, mode: str = 'custom') -> Match:
     """
     Score a demand-supply pair.
 
@@ -625,6 +726,12 @@ def score_match(demand: NormalizedRecord, supply: NormalizedRecord) -> Match:
         total_score = 1
         reasons.append('Exploratory match')
 
+    # Step 7: Buyer-seller validation (supply truth constraint)
+    buyer_seller_valid, _ = validate_match(supply, demand, mode)
+
+    # Step 8: Build narrative (why this pair matches)
+    narrative = build_narrative(demand, supply, reasons)
+
     return Match(
         demand=demand,
         supply=supply,
@@ -634,14 +741,16 @@ def score_match(demand: NormalizedRecord, supply: NormalizedRecord) -> Match:
         tier_reason=tier_reason,
         need_profile=need_profile,
         capability_profile=capability_profile,
+        buyer_seller_valid=buyer_seller_valid,
+        narrative=narrative,
     )
 
 
 def match_records(
     demand: List[NormalizedRecord],
     supply: List[NormalizedRecord],
+    mode: str = 'custom',
     min_score: int = 0,
-    best_match_only: bool = False,
     on_progress: Optional[callable] = None,
 ) -> MatchingResult:
     """
@@ -650,48 +759,48 @@ def match_records(
     Args:
         demand: List of demand records
         supply: List of supply records
-        min_score: Minimum score threshold for matches (default: 0)
-        best_match_only: If True, return only best match per demand (legacy mode)
-                        If False, return ALL matches above threshold (default)
-        on_progress: Optional callback(current, total) called after each demand row
+        mode: Connector mode for buyer-seller validation
+              ('recruiting', 'biotech_licensing', 'wealth_management',
+               'real_estate_capital', 'logistics', 'crypto',
+               'enterprise_partnerships', 'custom')
+              'custom' bypasses buyer-seller validation.
+        min_score: Minimum score threshold (default: 0)
+        on_progress: Optional callback(current, total)
 
     Returns:
-        MatchingResult with demand_matches, supply_aggregates, and stats
-
-    Note:
-        - demand_matches: All matches above threshold (or best per demand if best_match_only=True)
-        - supply_aggregates: Each supply with ALL their matches
+        MatchingResult with demand_matches (round-robin distributed),
+        supply_aggregates, and stats.
     """
-    all_matches = []
+    all_matches: List[Match] = []
+    buyer_seller_filtered = 0
 
-    # Score every demand-supply pair
     for i, d in enumerate(demand):
         for s in supply:
-            match = score_match(d, s)
-            if match.score >= min_score:  # Apply min_score during matching
+            match = score_match(d, s, mode)
+
+            # SUPPLY TRUTH CONSTRAINT: filter buyer-seller mismatches
+            if match.buyer_seller_valid is False:
+                buyer_seller_filtered += 1
+                continue
+
+            if match.score >= min_score:
                 all_matches.append(match)
+
         if on_progress:
             on_progress(i + 1, len(demand))
 
     # Sort by score descending
     all_matches.sort(key=lambda m: m.score, reverse=True)
 
-    # Filter matches based on mode
-    if best_match_only:
-        # Legacy mode: only best match per demand
-        demand_matches = get_best_match_per_demand(all_matches)
-    else:
-        # New default: all matches above threshold
-        demand_matches = all_matches
+    # Round-robin distribution: fair allocation of demand across supply
+    # (replaces winner-takes-all; same supply can't monopolise all demand contacts)
+    demand_matches = distribute_matches_round_robin(all_matches)
 
-    # Aggregate matches per supply
+    # Aggregate per supply — only supplies in demand_matches
     supply_aggregates = aggregate_by_supply(demand_matches)
 
-    # Calculate stats
     scores = [m.score for m in all_matches]
     avg_score = round(sum(scores) / len(scores)) if scores else 0
-
-    # Count unique demands matched
     unique_demands = len(set(get_demand_key(m.demand) for m in demand_matches))
 
     return MatchingResult(
@@ -703,6 +812,7 @@ def match_records(
             'total_matches': len(demand_matches),
             'unique_demands_matched': unique_demands,
             'avg_score': avg_score,
+            'buyer_seller_filtered': buyer_seller_filtered,
         }
     )
 

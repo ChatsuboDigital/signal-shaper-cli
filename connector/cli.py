@@ -166,7 +166,7 @@ def normalized_to_supply_record(record: NormalizedRecord) -> SupplyRecord:
 @click.option('--supply', '-s', help='Path to supply CSV file', type=click.Path(exists=True))
 @click.option('--output-dir', '-o', default='./output', help='Output directory', type=click.Path())
 @click.option('--min-score', default=30, help='Minimum match score (0-100)', type=float)
-@click.option('--best-match-only', is_flag=True, default=False, help='Return only best match per demand (default: all matches)')
+@click.option('--mode', default='custom', help='Connector mode for buyer-seller validation (recruiting, biotech_licensing, wealth_management, real_estate_capital, logistics, crypto, enterprise_partnerships, custom)')
 @click.option('--enrich/--no-enrich', default=True, help='Enable email enrichment')
 @click.option('--ai-intros/--no-ai-intros', default=True, help='Enable AI intro generation')
 @click.option('--generate-intros-for',
@@ -177,7 +177,7 @@ def normalized_to_supply_record(record: NormalizedRecord) -> SupplyRecord:
 @click.option('--format', type=click.Choice(['csv', 'json', 'both']), default='csv', help='Output format')
 @click.option('--ai-model', help='AI model to use (e.g., gpt-4o-mini, claude-3-haiku)')
 @click.option('--interactive', is_flag=True, hidden=True)
-def run(demand, supply, output_dir, min_score, best_match_only, enrich, ai_intros, generate_intros_for, send_emails, format, ai_model, interactive):
+def run(demand, supply, output_dir, min_score, mode, enrich, ai_intros, generate_intros_for, send_emails, format, ai_model, interactive):
     """
     Run the complete flow: match, enrich, and generate AI intros
 
@@ -274,8 +274,8 @@ def run(demand, supply, output_dir, min_score, best_match_only, enrich, ai_intro
         result = match_records(
             demand_records,
             supply_records,
+            mode=mode,
             min_score=int(min_score),
-            best_match_only=best_match_only,
             on_progress=_on_match_progress,
         )
 
@@ -286,10 +286,13 @@ def run(demand, supply, output_dir, min_score, best_match_only, enrich, ai_intro
     total_matches = len(result.demand_matches)
     avg_per_demand = total_matches / unique_demands if unique_demands > 0 else 0
 
+    buyer_seller_filtered = result.stats.get('buyer_seller_filtered', 0)
     show_success(f"Found {total_matches} total matches in {elapsed:.1f}s")
-    if not best_match_only and unique_demands > 0:
+    if unique_demands > 0:
         show_info(f"  • {unique_demands} demands matched")
         show_info(f"  • {avg_per_demand:.1f} avg matches per demand")
+    if buyer_seller_filtered > 0:
+        show_info(f"  • {buyer_seller_filtered} pairs filtered (buyer-seller mismatch)")
     show_info(f"  • Average match score: {result.stats['avg_score']}/100")
 
     if len(result.demand_matches) == 0:
