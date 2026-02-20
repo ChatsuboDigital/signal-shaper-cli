@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "signalis"
+version = "1.2.0"
+description = "Signal-driven matching engine for B2B outreach"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+ai = [
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    "exa-py>=1.0.0",
+]
+connector = [
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    "pandas>=2.0.0",
+    "pydantic>=2.0.0",
+    "inquirer>=3.1.0",
+    "chardet>=5.0.0",
+    "pyyaml>=6.0.0",
+]
+all = [
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    "exa-py>=1.0.0",
+    "pandas>=2.0.0",
+    "pydantic>=2.0.0",
+    "inquirer>=3.1.0",
+    "chardet>=5.0.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.scripts]
+signalis = "shaper.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["shaper*", "core*", "connector*"]
