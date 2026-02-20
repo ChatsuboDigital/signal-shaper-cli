@@ -231,39 +231,21 @@ def verify_with_ssm(
         status = (data.get('status') or '').lower()
         verdict = (data.get('verdict') or '').upper()
 
-        # Catch-all / Microsoft 365 signals from SSM response
-        # SSM may return these fields when it detects catch-all or M365 tenants
-        hosted_at = (
-            data.get('hosted_at') or
-            data.get('hostedAt') or
-            data.get('provider') or ''
-        ).lower()
-        is_catch_all = bool(
-            data.get('catch_all') or
-            data.get('catchAll') or
-            data.get('is_catch_all') or
-            data.get('isCatchAll')
-        )
-        is_ms365_hosted = any(k in hosted_at for k in ('microsoft', 'outlook', 'exchange'))
+        # Parse provider context for storage — informational only.
+        # When SSM returns status:'valid' on a Microsoft-hosted domain it means
+        # SSM already ran Microsoft's own account enumeration endpoint
+        # (/common/GetCredentialType) and confirmed the specific mailbox exists
+        # (catchAllUpgrade:true). We must NOT override that — SSM's status field
+        # is the authoritative verdict, including for M365 catch-all domains.
+        hosted_at = (data.get('hosted_at') or data.get('hostedAt') or '').lower()
+        catch_all_upgrade = bool(data.get('catchAllUpgrade') or data.get('catch_all_upgrade'))
+        provider_ctx = {}
+        if hosted_at:
+            provider_ctx['hosted_at'] = hosted_at
+        if catch_all_upgrade:
+            provider_ctx['catch_all_upgrade'] = True
 
-        # SSM explicitly detected catch-all or Microsoft-hosted domain →
-        # downgrade to risky regardless of status field. Catch-all domains
-        # return 250 OK for any address, so "valid" from SMTP means nothing.
-        if is_catch_all or is_ms365_hosted:
-            return EnrichmentResult(
-                action='VERIFY',
-                outcome='VERIFIED',
-                email=email,
-                verified=False,  # Risky — catch-all / M365 tenant
-                source='ssm',
-                inputs_present={'email': True},
-                provider_results={
-                    'catch_all': True,
-                    'hosted_at': hosted_at or 'microsoft',
-                }
-            )
-
-        # valid / VALID → confirmed live
+        # valid → confirmed live (SSM may have used M365 account enumeration to confirm)
         if status == 'valid' or verdict == 'VALID':
             return EnrichmentResult(
                 action='VERIFY',
@@ -271,10 +253,11 @@ def verify_with_ssm(
                 email=email,
                 verified=True,
                 source='ssm',
-                inputs_present={'email': True}
+                inputs_present={'email': True},
+                provider_results=provider_ctx
             )
 
-        # risky — passes but flagged (verified=False so CSV shows it)
+        # risky → catch-all domain, low confidence (verified=False so CSV reflects it)
         if status == 'risky':
             return EnrichmentResult(
                 action='VERIFY',
@@ -282,10 +265,11 @@ def verify_with_ssm(
                 email=email,
                 verified=False,
                 source='ssm',
-                inputs_present={'email': True}
+                inputs_present={'email': True},
+                provider_results=provider_ctx
             )
 
-        # invalid / INVALID → dead address
+        # invalid → dead address
         if status == 'invalid' or verdict == 'INVALID':
             return EnrichmentResult(
                 action='VERIFY',
@@ -293,7 +277,8 @@ def verify_with_ssm(
                 email=email,
                 verified=False,
                 source='ssm',
-                inputs_present={'email': True}
+                inputs_present={'email': True},
+                provider_results=provider_ctx
             )
 
         # unknown / no status → can't determine, don't block
